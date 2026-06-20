@@ -41,6 +41,15 @@ def _resolve_timezone(timezone: str | None, kwargs: dict[str, Any]) -> str | Non
     return timezone
 
 
+def _check_removed_kwargs(kwargs: dict[str, Any]) -> None:
+    """Raise a clear error for removed parameters that now fall into **kwargs."""
+    if "backend" in kwargs:
+        raise TypeError(
+            "The 'backend' parameter has been removed — patchright is no longer "
+            "supported and stock Playwright is the only backend. Remove the argument."
+        )
+
+
 class _ProxySettingsRequired(TypedDict):
     server: str
 
@@ -61,7 +70,6 @@ def launch(
     timezone: str | None = None,
     locale: str | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
@@ -86,10 +94,6 @@ def launch(
             Requires ``pip install cloakbrowser[geoip]``. Downloads ~70 MB
             GeoLite2-City database on first use.  Explicit timezone/locale
             always override geoip results.
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
-            Patchright suppresses CDP signals (helps reCAPTCHA v3 Enterprise)
-            but breaks proxy auth and add_init_script.
-            Override globally with CLOAKBROWSER_BACKEND env var.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -106,7 +110,9 @@ def launch(
         >>> print(page.title())
         >>> browser.close()
     """
-    sync_playwright = _import_sync_playwright(_resolve_backend(backend))
+    _check_removed_kwargs(kwargs)
+
+    from playwright.sync_api import sync_playwright
 
     binary_path = ensure_binary()
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
@@ -159,7 +165,6 @@ async def launch_async(  # noqa: C901
     timezone: str | None = None,
     locale: str | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
@@ -177,7 +182,6 @@ async def launch_async(  # noqa: C901
         timezone: IANA timezone (e.g. 'America/New_York'). Sets --fingerprint-timezone binary flag.
         locale: BCP 47 locale (e.g. 'en-US'). Sets --lang binary flag.
         geoip: Auto-detect timezone/locale from proxy IP (default False).
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -199,7 +203,9 @@ async def launch_async(  # noqa: C901
         >>>
         >>> asyncio.run(main())
     """
-    async_playwright = _import_async_playwright(_resolve_backend(backend))
+    _check_removed_kwargs(kwargs)
+
+    from playwright.async_api import async_playwright
 
     binary_path = ensure_binary()
     timezone, locale, exit_ip = maybe_resolve_geoip(geoip, proxy, timezone, locale)
@@ -255,7 +261,6 @@ def launch_persistent_context(
     timezone: str | None = None,
     color_scheme: Literal["light", "dark", "no-preference"] | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
@@ -286,7 +291,6 @@ def launch_persistent_context(
             Default: None (uses Chromium default, which is 'light').
         geoip: Auto-detect timezone/locale from proxy IP (default False).
             Requires ``pip install cloakbrowser[geoip]``.
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -303,7 +307,9 @@ def launch_persistent_context(
         >>> page.goto("https://protected-site.com")
         >>> ctx.close()  # Profile is saved; re-use path next run to restore state.
     """
-    sync_playwright = _import_sync_playwright(_resolve_backend(backend))
+    _check_removed_kwargs(kwargs)
+
+    from playwright.sync_api import sync_playwright
 
     timezone = _resolve_timezone(timezone, kwargs)
 
@@ -383,7 +389,6 @@ async def launch_persistent_context_async(
     timezone: str | None = None,
     color_scheme: Literal["light", "dark", "no-preference"] | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
@@ -411,7 +416,6 @@ async def launch_persistent_context_async(
         timezone: IANA timezone (e.g. 'America/New_York').
         color_scheme: Color scheme preference — 'light', 'dark', or 'no-preference'.
         geoip: Auto-detect timezone/locale from proxy IP (default False).
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -433,7 +437,9 @@ async def launch_persistent_context_async(
         >>>
         >>> asyncio.run(main())
     """
-    async_playwright = _import_async_playwright(_resolve_backend(backend))
+    _check_removed_kwargs(kwargs)
+
+    from playwright.async_api import async_playwright
 
     timezone = _resolve_timezone(timezone, kwargs)
 
@@ -512,7 +518,6 @@ def launch_context(
     timezone: str | None = None,
     color_scheme: Literal["light", "dark", "no-preference"] | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
@@ -538,7 +543,6 @@ def launch_context(
         color_scheme: Color scheme preference — 'light', 'dark', or 'no-preference'.
             Default: None (uses Chromium default, which is 'light').
         geoip: Auto-detect timezone/locale from proxy IP (default False).
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -547,6 +551,8 @@ def launch_context(
     Returns:
         Playwright BrowserContext object.
     """
+    _check_removed_kwargs(kwargs)
+
     timezone = _resolve_timezone(timezone, kwargs)
 
     # Resolve geoip BEFORE launch() to avoid double-resolution and ensure
@@ -560,7 +566,7 @@ def launch_context(
     # so it applies to ALL contexts, not just the default one.
     # locale and timezone are set via binary flags only — no CDP emulation.
     browser = launch(headless=headless, proxy=proxy, args=args, stealth_args=stealth_args,
-                     timezone=timezone, locale=locale, backend=backend, extension_paths=extension_paths)
+                     timezone=timezone, locale=locale, extension_paths=extension_paths)
 
     context_kwargs: dict[str, Any] = {}
     if user_agent:
@@ -613,7 +619,6 @@ async def launch_context_async(
     timezone: str | None = None,
     color_scheme: Literal["light", "dark", "no-preference"] | None = None,
     geoip: bool = False,
-    backend: str | None = None,
     humanize: bool = False,
     human_preset: HumanPreset = "default",
     human_config: HumanConfigOverrides | None = None,
@@ -640,7 +645,6 @@ async def launch_context_async(
         timezone: IANA timezone (e.g. 'America/New_York').
         color_scheme: Color scheme preference — 'light', 'dark', or 'no-preference'.
         geoip: Auto-detect timezone/locale from proxy IP (default False).
-        backend: Playwright backend — 'playwright' (default) or 'patchright'.
         humanize: Enable human-like mouse, keyboard, scroll behavior (default False).
         human_preset: Humanize preset — 'default' or 'careful' (default 'default').
         human_config: Custom humanize config mapping to override preset values.
@@ -668,6 +672,8 @@ async def launch_context_async(
         >>>
         >>> asyncio.run(main())
     """
+    _check_removed_kwargs(kwargs)
+
     timezone = _resolve_timezone(timezone, kwargs)
 
     # Resolve geoip BEFORE launch_async() to avoid double-resolution and ensure
@@ -680,7 +686,7 @@ async def launch_context_async(
     # so it applies to ALL contexts, not just the default one.
     # locale and timezone are set via binary flags only — no CDP emulation.
     browser = await launch_async(headless=headless, proxy=proxy, args=args, stealth_args=stealth_args,
-                                 timezone=timezone, locale=locale, backend=backend, extension_paths=extension_paths)
+                                 timezone=timezone, locale=locale, extension_paths=extension_paths)
 
     context_kwargs: dict[str, Any] = {}
     if user_agent:
@@ -726,47 +732,6 @@ async def launch_context_async(
         patch_context_async(context, cfg)
 
     return context
-
-
-# ---------------------------------------------------------------------------
-# Backend resolution
-# ---------------------------------------------------------------------------
-
-
-def _resolve_backend(backend: str | None) -> str:
-    """Resolve backend: param > env var > default ('playwright')."""
-    b = backend or os.environ.get("CLOAKBROWSER_BACKEND", "playwright")
-    if b not in ("playwright", "patchright"):
-        raise ValueError(f"Unknown backend '{b}'. Use 'playwright' or 'patchright'.")
-    return b
-
-
-def _import_sync_playwright(backend: str):
-    """Import sync_playwright from the resolved backend."""
-    if backend == "patchright":
-        try:
-            from patchright.sync_api import sync_playwright
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "patchright is not installed. Install it with: pip install cloakbrowser[patchright]"
-            ) from None
-        return sync_playwright
-    from playwright.sync_api import sync_playwright
-    return sync_playwright
-
-
-def _import_async_playwright(backend: str):
-    """Import async_playwright from the resolved backend."""
-    if backend == "patchright":
-        try:
-            from patchright.async_api import async_playwright
-        except ModuleNotFoundError:
-            raise ModuleNotFoundError(
-                "patchright is not installed. Install it with: pip install cloakbrowser[patchright]"
-            ) from None
-        return async_playwright
-    from playwright.async_api import async_playwright
-    return async_playwright
 
 
 # ---------------------------------------------------------------------------

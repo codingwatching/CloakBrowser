@@ -1240,7 +1240,6 @@ await new Promise(r => setTimeout(r, 3000));
 ```
 
 Other tips for maximizing reCAPTCHA scores:
-- **Try the Patchright backend** — suppresses additional CDP automation signals at the Playwright protocol layer. Install with `pip install cloakbrowser[patchright]`, then use `launch(backend="patchright")` or set `CLOAKBROWSER_BACKEND=patchright` globally. Note: Patchright breaks proxy auth and `add_init_script` — only use it if you're still seeing low scores after trying the steps above
 - **Use Playwright, not Puppeteer** — Puppeteer sends more CDP protocol traffic that reCAPTCHA detects ([details](#puppeteer))
 - **Use residential proxies** — datacenter IPs are flagged by IP reputation, not browser fingerprint
 - **Spend 15+ seconds on the page** before triggering reCAPTCHA — short visits score lower

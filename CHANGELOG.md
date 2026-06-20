@@ -8,6 +8,8 @@ Changes are tagged: **[wrapper]** for Python/JS wrapper, **[binary]** for Chromi
 
 ## [Unreleased]
 
+- **[wrapper]** **Breaking**: removed the optional `patchright` backend. The `backend` parameter and `CLOAKBROWSER_BACKEND` environment variable no longer exist, and the `cloakbrowser[patchright]` extra is gone. Stock Playwright is now the only backend. The stealth binary handles automation-signal suppression at the C++ level — patchright added no measurable benefit on top of it (identical reCAPTCHA v3 score to plain Playwright) while breaking proxy auth and `add_init_script` (#27). Callers passing `backend=...` will get a `TypeError`; remove the argument.
+
 ## [0.3.32] — 2026-06-20
 
 - **[wrapper]** **Security**: Windows binary extraction — pass archive/destination paths to PowerShell via env vars instead of interpolating into the `-Command` string, closing a code-injection shape on paths containing single quotes (e.g. `C:\Users\O'Brien`)
