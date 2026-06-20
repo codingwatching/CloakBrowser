@@ -84,6 +84,32 @@ describe("composable Playwright launch helpers", () => {
     expect(buildContextOptions({ viewport: null }).viewport).toBeNull();
   });
 
+  it("buildContextOptions uses no viewport (null) when headed, so the page tracks the real window", async () => {
+    const { buildContextOptions } = await import("../src/index.js");
+
+    // Headed: no emulated viewport (CDP emulation would force outerWidth < innerWidth).
+    expect(buildContextOptions({ headless: false }).viewport).toBeNull();
+    // Headless keeps the deterministic default.
+    expect(buildContextOptions({ headless: true }).viewport).toEqual(DEFAULT_VIEWPORT);
+    // Explicit viewport always honored, even headed.
+    const custom = { width: 800, height: 600 };
+    expect(buildContextOptions({ headless: false, viewport: custom }).viewport).toEqual(custom);
+  });
+
+  it("buildContextOptions reads effective headless from launchOptions.headless", async () => {
+    const { buildContextOptions } = await import("../src/index.js");
+
+    // buildLaunchOptions spreads launchOptions LAST, so launchOptions.headless wins
+    // at the actual launch. Viewport must follow it — a raw headless:false (browser
+    // actually headed) must NOT get a fixed viewport (would reintroduce outer<inner).
+    expect(buildContextOptions({ launchOptions: { headless: false } }).viewport).toBeNull();
+    // And launchOptions.headless:true forces the deterministic viewport even if the
+    // top-level field said headed.
+    expect(
+      buildContextOptions({ headless: false, launchOptions: { headless: true } }).viewport,
+    ).toEqual(DEFAULT_VIEWPORT);
+  });
+
   it("buildLaunchOptions returns Playwright options without launching a browser", async () => {
     const freshConfig = await import("../src/config.js");
     vi.spyOn(freshConfig, "getPlatformTag").mockReturnValue("darwin-arm64");

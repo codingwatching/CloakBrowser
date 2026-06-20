@@ -8,6 +8,7 @@ Changes are tagged: **[wrapper]** for Python/JS wrapper, **[binary]** for Chromi
 
 ## [Unreleased]
 
+- **[wrapper]** Headed launches no longer apply a fixed emulated viewport on top of the real browser window — the page now tracks the actual window so window-geometry stays self-consistent. Headless keeps a deterministic viewport (unchanged). Applies across `launch`, `launch_context`, `launch_persistent_context` (+ async) and the JS Playwright/Puppeteer wrappers. Passing an explicit `viewport=`/`no_viewport` (Python) or `viewport`/`defaultViewport` (JS) still works exactly as before.
 - **[wrapper]** **Breaking**: removed the optional `patchright` backend. The `backend` parameter and `CLOAKBROWSER_BACKEND` environment variable no longer exist, and the `cloakbrowser[patchright]` extra is gone. Stock Playwright is now the only backend. The stealth binary handles automation-signal suppression at the C++ level — patchright added no measurable benefit on top of it (identical reCAPTCHA v3 score to plain Playwright) while breaking proxy auth and `add_init_script` (#27). Callers passing `backend=...` will get a `TypeError`; remove the argument.
 
 ## [0.3.32] — 2026-06-20

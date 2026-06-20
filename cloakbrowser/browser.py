@@ -31,6 +31,79 @@ logger = logging.getLogger("cloakbrowser")
 _VIEWPORT_UNSET = object()
 
 
+def _default_no_viewport(browser: Any) -> None:
+    """Default ``new_page()``/``new_context()`` to ``no_viewport=True``.
+
+    ``launch()`` returns a raw Playwright ``Browser``; a bare ``browser.new_page()``
+    would otherwise inherit Playwright's emulated 1280x720 viewport, producing
+    ``outerWidth < innerWidth`` — a physically impossible window (bot tell). We wrap
+    the two factory methods so pages track the real OS window instead. ``setdefault``
+    only: an explicit ``viewport`` or ``no_viewport`` from the caller is never
+    overridden (Playwright rejects passing both). Applied for headed launches only.
+    Composes under humanize's ``patch_browser`` (apply this first).
+    """
+    orig_new_context = browser.new_context
+    orig_new_page = browser.new_page
+
+    def _patched_new_context(**kwargs: Any) -> Any:
+        if "viewport" not in kwargs:
+            kwargs.setdefault("no_viewport", True)
+        return orig_new_context(**kwargs)
+
+    def _patched_new_page(**kwargs: Any) -> Any:
+        if "viewport" not in kwargs:
+            kwargs.setdefault("no_viewport", True)
+        return orig_new_page(**kwargs)
+
+    browser.new_context = _patched_new_context
+    browser.new_page = _patched_new_page
+
+
+def _default_no_viewport_async(browser: Any) -> None:
+    """Async variant of :func:`_default_no_viewport`."""
+    orig_new_context = browser.new_context
+    orig_new_page = browser.new_page
+
+    async def _patched_new_context(**kwargs: Any) -> Any:
+        if "viewport" not in kwargs:
+            kwargs.setdefault("no_viewport", True)
+        return await orig_new_context(**kwargs)
+
+    async def _patched_new_page(**kwargs: Any) -> Any:
+        if "viewport" not in kwargs:
+            kwargs.setdefault("no_viewport", True)
+        return await orig_new_page(**kwargs)
+
+    browser.new_context = _patched_new_context
+    browser.new_page = _patched_new_page
+
+
+def _resolve_context_viewport(viewport: Any, headless: bool) -> dict[str, Any]:
+    """Return the viewport kwarg for a context.
+
+    Headed: no emulated viewport so the page tracks the real window (CDP viewport
+    emulation forces outerWidth < innerWidth = a physically impossible window =
+    bot tell). Headless: a fixed ``DEFAULT_VIEWPORT`` stays coherent (outer == inner)
+    and keeps dimensions deterministic. Explicit ``viewport`` / ``None`` honored.
+    """
+    if viewport is _VIEWPORT_UNSET:
+        return {"viewport": DEFAULT_VIEWPORT} if headless else {"no_viewport": True}
+    if viewport is None:
+        return {"no_viewport": True}
+    return {"viewport": viewport}
+
+
+def _drop_conflicting_viewport(context_kwargs: dict[str, Any], kwargs: dict[str, Any]) -> None:
+    """Playwright rejects passing both ``viewport`` and ``no_viewport``. ``viewport`` is a
+    named parameter (never in ``**kwargs``), so the only conflict is a caller passing
+    ``no_viewport`` via ``**kwargs`` alongside an explicit ``viewport`` — the explicit
+    ``no_viewport`` wins; drop the viewport so Playwright doesn't error.
+    """
+    if "no_viewport" in kwargs and "viewport" in context_kwargs:
+        logger.debug("Both viewport and no_viewport requested; no_viewport (kwargs) wins")
+        context_kwargs.pop("viewport", None)
+
+
 def _resolve_timezone(timezone: str | None, kwargs: dict[str, Any]) -> str | None:
     """Accept both timezone and timezone_id — either works, no warning."""
     if "timezone_id" in kwargs:
@@ -121,7 +194,7 @@ def launch(
     if exit_ip and not (args and any(a.startswith("--fingerprint-webrtc-ip") for a in args)):
         args = list(args or [])
         args.append(f"--fingerprint-webrtc-ip={exit_ip}")
-        
+
     chrome_args = build_args(stealth_args, (args or []) + proxy_extra_args, timezone=timezone, locale=locale, headless=headless, extension_paths=extension_paths)
 
     logger.debug("Launching stealth Chromium (headless=%s, args=%d)", headless, len(chrome_args))
@@ -146,6 +219,12 @@ def launch(
             pw.stop()
 
     browser.close = _close_with_cleanup
+
+    # Headed: default new_page()/new_context() to no_viewport so the page tracks the
+    # real window (avoids the impossible-window tell). Headless keeps Playwright's
+    # default viewport (coherent there). Apply before humanize so the wraps compose.
+    if not headless:
+        _default_no_viewport(browser)
 
     # Human-like behavioral patching
     if humanize:
@@ -238,6 +317,10 @@ async def launch_async(  # noqa: C901
             await pw.stop()
 
     browser.close = _close_with_cleanup
+
+    # Headed: default new_page()/new_context() to no_viewport (see launch()).
+    if not headless:
+        _default_no_viewport_async(browser)
 
     # Human-like behavioral patching (async variant)
     if humanize:
@@ -333,15 +416,11 @@ def launch_persistent_context(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    if viewport is _VIEWPORT_UNSET:
-        context_kwargs["viewport"] = DEFAULT_VIEWPORT
-    elif viewport is None:
-        context_kwargs["no_viewport"] = True
-    else:
-        context_kwargs["viewport"] = viewport
+    context_kwargs.update(_resolve_context_viewport(viewport, headless))
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
 
     seed_widevine_hint(user_data_dir, binary_path)
 
@@ -463,15 +542,11 @@ async def launch_persistent_context_async(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    if viewport is _VIEWPORT_UNSET:
-        context_kwargs["viewport"] = DEFAULT_VIEWPORT
-    elif viewport is None:
-        context_kwargs["no_viewport"] = True
-    else:
-        context_kwargs["viewport"] = viewport
+    context_kwargs.update(_resolve_context_viewport(viewport, headless))
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
 
     seed_widevine_hint(user_data_dir, binary_path)
 
@@ -571,15 +646,11 @@ def launch_context(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    if viewport is _VIEWPORT_UNSET:
-        context_kwargs["viewport"] = DEFAULT_VIEWPORT
-    elif viewport is None:
-        context_kwargs["no_viewport"] = True
-    else:
-        context_kwargs["viewport"] = viewport
+    context_kwargs.update(_resolve_context_viewport(viewport, headless))
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
 
     try:
         context = browser.new_context(**context_kwargs)
@@ -691,15 +762,11 @@ async def launch_context_async(
     context_kwargs: dict[str, Any] = {}
     if user_agent:
         context_kwargs["user_agent"] = user_agent
-    if viewport is _VIEWPORT_UNSET:
-        context_kwargs["viewport"] = DEFAULT_VIEWPORT
-    elif viewport is None:
-        context_kwargs["no_viewport"] = True
-    else:
-        context_kwargs["viewport"] = viewport
+    context_kwargs.update(_resolve_context_viewport(viewport, headless))
     if color_scheme:
         context_kwargs["color_scheme"] = color_scheme
     context_kwargs.update(kwargs)
+    _drop_conflicting_viewport(context_kwargs, kwargs)
 
     # Catch BaseException (not just Exception) so that asyncio.CancelledError
     # triggers browser cleanup — otherwise the underlying Chromium process
