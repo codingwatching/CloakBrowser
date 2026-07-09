@@ -8,6 +8,8 @@ Changes are tagged: **[wrapper]** for Python/JS wrapper, **[binary]** for Chromi
 
 ## [Unreleased]
 
+## [0.4.10] — 2026-07-09
+
 - **[wrapper]** Fix JS CLI silently exiting with no output when run via `npx`/`node_modules/.bin` (#427). The entry-point guard compared `import.meta.url` to an unresolved `process.argv[1]`; symlinked bin installs (npm/pnpm/npx) never matched, so no subcommand ran. Now realpath-resolves the invoked path before comparing.
 - **[wrapper]** Fix `humanize=True` breaking interactions with elements **inside iframes** (#428). `frame.locator("#btn").click()` / `fill()` / `hover()` / etc. (and the frame-level `frame.click(...)` equivalents) now resolve the selector in the owning sub-frame's own document instead of misrouting to the top page, which previously raised `ElementNotAttachedError`. Humanized mouse motion is preserved inside iframes. Python only (the JS and .NET wrappers were already frame-correct).
 
